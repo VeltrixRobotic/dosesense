@@ -2,180 +2,206 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MQTT Dashboard (Thresholds Fixed)</title>
-
+<title>DoseSense Login</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-:root { --bg:#f2f5f9; --card:#fff; --text:#000; --accent:#007bff; }
-body.dark { --bg:#121212; --card:#1e1e1e; --text:#f0f0f0; --accent:#4dabf7; }
-body {
-  background:var(--bg); color:var(--text);
-  font-family:Arial; padding:20px;
+@font-face {
+  font-family: "Debussy";
+  src: url("fonts/debussy.ttf") format("truetype");
 }
-h1{text-align:center}
-button{padding:8px 12px;border:none;border-radius:6px;background:var(--accent);color:white;cursor:pointer}
-.topbar{display:flex;justify-content:space-between;max-width:900px;margin:auto;margin-bottom:15px}
-.cards{display:flex;justify-content:center;gap:20px;flex-wrap:wrap}
-.card{background:var(--card);padding:15px;width:200px;border-radius:10px;text-align:center;box-shadow:0 0 10px rgba(0,0,0,.15)}
-.value{font-size:32px;font-weight:bold;color:var(--accent)}
-.alert{color:red !important}
-.status{text-align:center;font-weight:bold;margin:10px}
-.connected{color:limegreen}.disconnected{color:red}
-.charts{max-width:900px;margin:auto}
-canvas{background:var(--card);padding:10px;border-radius:10px;margin-bottom:20px}
-.footer{text-align:center;font-size:12px;opacity:.7}
-.threshold-panel{max-width:900px;margin:20px auto;background:var(--card);padding:15px;border-radius:10px}
-.threshold-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:center}
-.threshold-grid input{padding:5px;width:100%}
+
+body{
+  margin:0;
+  font-family:'Inter',sans-serif;
+  background:#ffffff;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.login-box{
+  width:360px;
+  text-align:center;
+}
+
+h2{
+  font-size:24px;
+  font-weight:700;
+  margin:0 0 18px;
+  color:#1f2937;
+  position:relative;
+  bottom:5px;
+  left:-100px;
+}
+
+.brand{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:18px;
+  position:relative;
+  top:-20px;
+  left:-2.5px;
+}
+
+.logo-box{
+  width:68px;
+  height:68px;
+  background:#5b6cff;
+  border-radius:18px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.logo-box svg{
+  width:32px;
+  height:32px;
+  fill:white;
+}
+
+.brand-name{
+  font-family:"Debussy",sans-serif;
+  font-size:50px;
+  font-weight:normal;
+  color:#000;
+}
+
+.label{
+  text-align:left;
+  font-size:11px;
+  color:#9ca3af;
+  margin-bottom:6px;
+}
+
+input{
+  width:100%;
+  height:50px;
+  padding:0 14px;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  font-size:14px;
+  margin-bottom:18px;
+  box-sizing:border-box;
+}
+
+button{
+  width:100%;
+  height:52px;
+  border-radius:10px;
+  border:none;
+  background:#3b82f6;
+  color:white;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+button:disabled{
+  background:#aac2ff;
+}
+
+.status{
+  margin-top:10px;
+  font-size:13px;
+}
+
+.footer{
+  margin-top:22px;
+  font-size:10px;
+  color:#9ca3af;
+}
 </style>
 </head>
 
 <body>
 
-<h1>MQTT Dashboard with Thresholds</h1>
+<div class="login-box">
 
-<div class="topbar">
-  <button onclick="toggleDarkMode()">🌙 Dark Mode</button>
-  <button onclick="exportCSV()">💾 Export CSV</button>
+  <!-- WELCOME BACK -->
+  <h2>Welcome back</h2>
+
+  <!-- BRAND -->
+  <div class="brand">
+    <div class="logo-box">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C12 2 5 10.3 5 14.5C5 18.1 8.1 21 12 21C15.9 21 19 18.1 19 14.5C19 10.3 12 2 12 2ZM12 19C9.8 19 8 17.2 8 15C8 13.3 10.3 9.9 12 7.6C13.7 9.9 16 13.3 16 15C16 17.2 14.2 19 12 19Z"/>
+      </svg>
+    </div>
+    <div class="brand-name">DoseSense</div>
+  </div>
+
+  <!-- FORM -->
+  <div class="label">ENTER DEVICE ID</div>
+  <input type="text" id="deviceInput" placeholder="Device ID">
+  <button id="loginBtn" onclick="verifyDevice()">Log In</button>
+
+  <!-- STATUS -->
+  <div class="status" id="statusMsg"></div>
+
+  <!-- FOOTER -->
+  <div class="footer">DoseSense © Veltrix Robotic 2026 | v1.0.0</div>
+
 </div>
-
-<div id="status" class="status disconnected">Connecting...</div>
-
-<div class="cards">
-  <div class="card"><h3>Temperature</h3><div id="tempVal" class="value">--</div>°C</div>
-  <div class="card"><h3>Humidity</h3><div id="humVal" class="value">--</div>%</div>
-  <div class="card"><h3>pH</h3><div id="phVal" class="value">--</div>pH</div>
-</div>
-
-<div class="threshold-panel">
-<h3>Threshold Settings</h3>
-<div class="threshold-grid">
-  <b>Parameter</b><b>Min</b><b>Max</b><b>Apply</b>
-
-  Temp (°C)
-  <input id="tmin" type="number" value="10">
-  <input id="tmax" type="number" value="35">
-  <button onclick="setThresholds()">✔</button>
-
-  Hum (%)
-  <input id="hmin" type="number" value="30">
-  <input id="hmax" type="number" value="80">
-  <button onclick="setThresholds()">✔</button>
-
-  pH
-  <input id="pmin" type="number" value="5.5">
-  <input id="pmax" type="number" value="7.5">
-  <button onclick="setThresholds()">✔</button>
-</div>
-</div>
-
-<div class="charts">
-  <canvas id="tempChart"></canvas>
-  <canvas id="humChart"></canvas>
-  <canvas id="phChart"></canvas>
-</div>
-
-<div class="footer">Last update: <span id="lastUpdate">--</span></div>
 
 <script>
-const brokerUrl = "wss://broker.emqx.io:8084/mqtt";
-const topic = "data";
-const maxPoints = 30;
-const csvData = [["Time","Temperature","Humidity","pH"]];
+const broker="wss://broker.emqx.io:8084/mqtt";
+const client = mqtt.connect(broker,{reconnectPeriod:3000});
 
-let thresholds = { tmin:10,tmax:35,hmin:30,hmax:80,pmin:5.5,pmax:7.5 };
-
-function setThresholds() {
-  thresholds.tmin = parseFloat(tmin.value);
-  thresholds.tmax = parseFloat(tmax.value);
-  thresholds.hmin = parseFloat(hmin.value);
-  thresholds.hmax = parseFloat(hmax.value);
-  thresholds.pmin = parseFloat(pmin.value);
-  thresholds.pmax = parseFloat(pmax.value);
-}
-
-const statusEl = document.getElementById("status");
-const tempEl = document.getElementById("tempVal");
-const humEl = document.getElementById("humVal");
-const phEl = document.getElementById("phVal");
-
-const client = mqtt.connect(brokerUrl,{reconnectPeriod:3000});
-
-client.on("connect",()=>{
-  statusEl.textContent="Connected";
-  statusEl.className="status connected";
-  client.subscribe(topic);
-});
-client.on("offline",()=>{
-  statusEl.textContent="Disconnected";
-  statusEl.className="status disconnected";
-});
-
-function createChart(ctx,label){
-  return new Chart(ctx,{
-    type:'line',
-    data:{labels:[],datasets:[{label:label,data:[],borderWidth:2,tension:0.2}]},
-    options:{animation:false,responsive:true,scales:{x:{display:false}}}
-  });
-}
-
-const tempChart=createChart(tempChartCanvas=document.getElementById("tempChart"),"Temperature");
-const humChart=createChart(document.getElementById("humChart"),"Humidity");
-const phChart=createChart(document.getElementById("phChart"),"pH");
-
-function updateChart(chart,val){
-  if(chart.data.datasets[0].data.length>=maxPoints){
-    chart.data.datasets[0].data.shift();
-    chart.data.labels.shift();
-  }
-  chart.data.datasets[0].data.push(val);
-  chart.data.labels.push('');
-  chart.update();
-}
-
-function toggleDarkMode(){document.body.classList.toggle("dark");}
-
-function exportCSV(){
-  const blob=new Blob([csvData.map(r=>r.join(",")).join("\n")],{type:"text/csv"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="sensor_data.csv";
-  a.click();
-}
-
-function applyAlert(el,val,min,max){
-  if(val<min||val>max) el.classList.add("alert");
-  else el.classList.remove("alert");
-}
+let verified=false;
+let checkTimer;
+let isChecking=false;
 
 client.on("message",(topic,message)=>{
-  const parts=message.toString().trim().split(",");
-  if(parts.length>=3){
-    const t=parseFloat(parts[0]);
-    const h=parseFloat(parts[1]);
-    const p=parseFloat(parts[2]);
-    const time=new Date().toLocaleTimeString();
+  if(!isChecking) return;
+  const payload = message.toString().trim().split(",");
+  const mac = payload[0];
+  const input = deviceInput.value.trim().toLowerCase();
 
-    tempEl.innerText=t.toFixed(1);
-    humEl.innerText=h.toFixed(1);
-    phEl.innerText=p.toFixed(2);
-    lastUpdate.innerText=time;
-
-    applyAlert(tempEl,t,thresholds.tmin,thresholds.tmax);
-    applyAlert(humEl,h,thresholds.hmin,thresholds.hmax);
-    applyAlert(phEl,p,thresholds.pmin,thresholds.pmax);
-
-    updateChart(tempChart,t);
-    updateChart(humChart,h);
-    updateChart(phChart,p);
-
-    csvData.push([time,t,h,p]);
+  if(mac === input){
+    verified=true;
+    isChecking=false;
+    client.unsubscribe("dosesense/+/data");
+    statusMsg.style.color="green";
+    statusMsg.innerText="Device online. Redirecting...";
+    setTimeout(()=>{
+      window.location.href="dosesense.html?device="+mac;
+    },1000);
   }
 });
+
+function verifyDevice(){
+  const input = deviceInput.value.trim().toLowerCase();
+  if(!input){
+    statusMsg.style.color="red";
+    statusMsg.innerText="Please enter Device ID";
+    return;
+  }
+  if(isChecking) return;
+
+  verified=false;
+  isChecking=true;
+  loginBtn.disabled=true;
+  statusMsg.style.color="#555";
+  statusMsg.innerText="Checking device online...";
+
+  client.subscribe("dosesense/+/data");
+
+  clearTimeout(checkTimer);
+  checkTimer=setTimeout(()=>{
+    if(!verified){
+      isChecking=false;
+      loginBtn.disabled=false;
+      client.unsubscribe("dosesense/+/data");
+      statusMsg.style.color="red";
+      statusMsg.innerText="ID INVALID or DEVICE OFFLINE";
+    }
+  },6000);
+}
 </script>
 
 </body>
 </html>
-
