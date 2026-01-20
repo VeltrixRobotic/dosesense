@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DoseSense Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+@font-face {
+  font-family: "Debussy";
+  src: url("fonts/debussy.ttf") format("truetype");
+}
+
+:root {
+  --bg:#f6f9fc;
+  --card:#ffffff;
+  --text:#1c1c1c;
+  --muted:#555;
+  --badge:#e0e6ef;
+}
+.dark {
+  --bg:#0f172a;
+  --card:#1e293b;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --badge:#334155;
+}
+body {
+  margin:0;
+  font-family:"Segoe UI",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+.app {
+  max-width:420px;
+  margin:auto;
+  padding:14px;
+}
+.card {
+  background:var(--card);
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:12px;
+}
+.header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+.status {
+  display:flex;
+  gap:6px;
+  font-size:11px;
+  align-items:center;
+}
+.badge {
+  padding:3px 8px;border-radius:20px;font-size:10px;
+  background:var(--badge);color:var(--muted);
+}
+.toggle-theme {
+  cursor:pointer;
+  font-size:13px;
+  padding:4px 8px;
+  border-radius:50%;
+  background:var(--badge);
+}
+.grid {
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+
+/* ===== 3D SENSOR BOXES ===== */
+.sensor {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px;
+  position: relative;
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.08),
+    0 1px 3px rgba(0,0,0,0.06);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.sensor:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 18px rgba(0,0,0,0.12),
+    0 4px 6px rgba(0,0,0,0.08);
+}
+.dark .sensor {
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.5),
+    0 1px 3px rgba(0,0,0,0.4);
+}
+.sensor::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
+  pointer-events:none;
+}
+.sensor .icon {
+  position:absolute;
+  top:10px;
+  right:10px;
+  opacity:.5;
+}
+
+.sensor h5 {font-size:10px;opacity:.6;margin:0 0 6px 0;}
+.value {font-size:22px;font-weight:700;}
+.unit {font-size:11px;opacity:.6;}
+
+/* ===== CONTROL BOXES ===== */
+.control-box {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  position: relative;
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.08),
+    0 1px 3px rgba(0,0,0,0.06);
+  transition: transform .15s ease, box-shadow .15s ease;
+  margin-bottom:10px;
+}
+.control-box:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 18px rgba(0,0,0,0.12),
+    0 4px 6px rgba(0,0,0,0.08);
+}
+.dark .control-box {
+  box-shadow:
+    0 4px 10px rgba(0,0,0,0.5),
+    0 1px 3px rgba(0,0,0,0.4);
+}
+.control-title {
+  font-size:11px;
+  opacity:.6;
+  text-align:center;
+  margin-bottom:6px;
+}
+.control-value {
+  font-size:22px;
+  font-weight:700;
+  text-align:center;
+}
+
+/* Extra spacing before mode box */
+.control-box.mode-box {
+  margin-top:16px;
+}
+
+.ctrl-grid {display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ctrl-btn {
+  background:#5a67ff22;
+  border-radius:14px;
+  padding:16px;
+  text-align:center;
+  font-weight:600;
+  cursor:pointer;
+}
+.motor-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#5a67ff11;
+  padding:10px;
+  border-radius:12px;
+  margin-top:8px;
+}
+.status-pill {
+  padding:4px 10px;
+  border-radius:12px;
+  font-size:11px;
+  font-weight:600;
+}
+.off {background:#64748b33;color:var(--muted);}
+.on {background:#22c55e33;color:#22c55e;}
+.master-toggle {
+  width:42px;height:22px;background:#64748b66;
+  border-radius:11px;position:relative;cursor:pointer;
+}
+.master-toggle::after {
+  content:"";width:18px;height:18px;background:white;
+  border-radius:50%;position:absolute;top:2px;left:2px;
+  transition:.2s;
+}
+.master-toggle.active {background:#5a67ff;}
+.master-toggle.active::after {left:22px;}
+.locked-icon {
+  font-size:18px;
+  color:#f59e0b;
+}
+.footer {text-align:center;font-size:10px;opacity:.5;margin-top:6px;}
+
+/* ===== DoseSense Branding ===== */
+.dosesense-brand{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.dosesense-brand .logo-box{
+  width:26px;
+  height:26px;
+  background:#5a67ff;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.dosesense-brand .logo-box svg{
+  width:14px;
+  height:14px;
+  fill:white;
+}
+.dosesense-brand .brand-name{
+  font-family:"Debussy",sans-serif;
+  font-size:18px;
+  font-weight:normal;
+  color:var(--text);
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<div class="header">
+  <div class="brand dosesense-brand">
+    <div class="logo-box">
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2C12 2 5 10.3 5 14.5C5 18.1 8.1 21 12 21C15.9 21 19 18.1 19 14.5C19 10.3 12 2 12 2ZM12 19C9.8 19 8 17.2 8 15C8 13.3 10.3 9.9 12 7.6C13.7 9.9 16 13.3 16 15C16 17.2 14.2 19 12 19Z"/>
+      </svg>
+    </div>
+    <span class="brand-name">DoseSense</span>
+  </div>
+
+  <div class="status">
+    <span class="badge" id="connStatus">OFFLINE</span>
+    <span class="badge" id="deviceIdBadge">ID:----</span>
+    <span class="toggle-theme" onclick="toggleTheme()" id="themeBtn">🌙</span>
+  </div>
+</div>
+
+<div class="card grid">
+  <div class="sensor"><span class="icon">🌡</span><h5>TEMPERATURE</h5><div class="value" id="tempVal">--</div><span class="unit">°C</span></div>
+  <div class="sensor"><span class="icon">💧</span><h5>HUMIDITY</h5><div class="value" id="humVal">--</div><span class="unit">%</span></div>
+  <div class="sensor"><span class="icon">🧪</span><h5>WATER pH</h5><div class="value" id="phVal">--</div><span class="unit">pH</span></div>
+  <div class="sensor"><span class="icon">⚡</span><h5>WATER EC</h5><div class="value" id="ecVal">--</div><span class="unit">µS/cm</span></div>
+</div>
+
+<div class="card">
+
+  <div class="control-box">
+    <div class="control-title">EC SETPOINT</div>
+    <div class="control-value" id="ecSet">0</div>
+    <span class="unit" style="display:block;text-align:center">µS/cm</span>
+  </div>
+
+  <div class="ctrl-grid" style="margin-top:10px;">
+    <div class="ctrl-btn" onclick="sendCmd('ec_down')">- EC DOWN</div>
+    <div class="ctrl-btn" onclick="sendCmd('ec_up')">+ EC UP</div>
+  </div>
+
+  <div class="control-box mode-box">
+    <div class="control-title">CURRENT MODE</div>
+    <div class="control-value" id="modeVal">--</div>
+  </div>
+
+  <div class="ctrl-grid">
+    <div class="ctrl-btn" onclick="sendCmd('auto')">AUTO</div>
+    <div class="ctrl-btn" onclick="sendCmd('manual')">MANUAL</div>
+  </div>
+</div>
+
+<div class="card">
+  <h5>SYSTEM ACTUATORS</h5>
+  <div class="motor-row">Motor A <span id="motorAStatus" class="status-pill off">OFF</span></div>
+  <div class="motor-row">Motor B <span id="motorBStatus" class="status-pill off">OFF</span></div>
+  <div class="motor-row">
+    Master 
+    <span id="masterControlArea">
+      <div class="master-toggle" id="masterToggle" onclick="toggleMaster()"></div>
+    </span>
+  </div>
+</div>
+
+<div class="footer">DoseSense © Veltrix Robotic 2026 | v1.0.0</div>
+
+</div>
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const DEVICE_MAC = urlParams.get("device");
+
+if(!DEVICE_MAC){
+  alert("No Device ID provided");
+  window.location.href="login.html";
+}
+
+const broker="wss://broker.emqx.io:8084/mqtt";
+const topicData="dosesense/"+DEVICE_MAC+"/data";
+const topicCmd ="dosesense/"+DEVICE_MAC+"/cmd";
+const client=mqtt.connect(broker,{reconnectPeriod:3000});
+
+let lastDataTime=0;
+const DATA_TIMEOUT=10000;
+
+setOffline();
+loadTheme();
+
+client.on("connect",()=>client.subscribe(topicData));
+
+client.on("message",(topic,message)=>{
+  const p=message.toString().trim().split(",");
+  if(p.length>=9){
+    lastDataTime=Date.now();
+    setOnline();
+    deviceIdBadge.innerText="ID:"+p[0];
+    tempVal.innerText=parseFloat(p[1]).toFixed(1);
+    humVal.innerText=parseFloat(p[2]).toFixed(1);
+    phVal.innerText=parseFloat(p[3]).toFixed(2);
+    ecVal.innerText=parseFloat(p[4]).toFixed(0);
+    ecSet.innerText=parseFloat(p[5]).toFixed(0);
+    updateMotorStatus("motorAStatus",p[6]);
+    updateMotorStatus("motorBStatus",p[7]);
+    modeVal.innerText=p[8];
+    updateMasterUI(p[8]);
+    syncMasterToggle(p[6],p[7]);
+  }
+});
+
+function updateMasterUI(mode){
+  const area=document.getElementById("masterControlArea");
+  if(mode==="AUTO"){
+    area.innerHTML='<span class="locked-icon">🔒</span>';
+  } else {
+    area.innerHTML='<div class="master-toggle" id="masterToggle" onclick="toggleMaster()"></div>';
+  }
+}
+
+setInterval(()=>{
+  if(Date.now()-lastDataTime>DATA_TIMEOUT) setOffline();
+},1000);
+
+function setOnline(){
+  connStatus.innerText="ONLINE";
+  connStatus.style.color="#22c55e";
+}
+function setOffline(){
+  connStatus.innerText="OFFLINE";
+  connStatus.style.color="#ef4444";
+}
+
+function sendCmd(cmd){client.publish(topicCmd,cmd);}
+function updateMotorStatus(id,state){
+  const el=document.getElementById(id);
+  el.innerText=state==="ON"?"ACTIVE":"OFF";
+  el.className="status-pill "+(state==="ON"?"on":"off");
+}
+function toggleMaster(){
+  const el=document.getElementById("masterToggle");
+  el.classList.toggle("active");
+  client.publish(topicCmd,"master:"+(el.classList.contains("active")?"ON":"OFF"));
+}
+function syncMasterToggle(a,b){
+  const el=document.getElementById("masterToggle");
+  if(!el) return;
+  (a==="ON"&&b==="ON")?el.classList.add("active"):el.classList.remove("active");
+}
+
+function toggleTheme(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("theme",document.body.classList.contains("dark")?"dark":"light");
+  updateThemeIcon();
+}
+function loadTheme(){
+  if(localStorage.getItem("theme")==="dark"){
+    document.body.classList.add("dark");
+  }
+  updateThemeIcon();
+}
+function updateThemeIcon(){
+  themeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
+}
+</script>
+
+</body>
+</html>
