@@ -91,6 +91,9 @@ body {
   padding:4px 8px;
   border-radius:50%;
   background:var(--badge);
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 .grid {
   display:grid;grid-template-columns:1fr 1fr;gap:10px;
@@ -218,7 +221,16 @@ body {
   font-size:18px;
   color:#f59e0b;
 }
-.footer {text-align:center;font-size:10px;opacity:.5;margin-top:6px;}
+
+.footer {
+  position: fixed;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  opacity: 0.5;
+  pointer-events: none;
+}
 
 /* ===== DoseSense Branding ===== */
 .dosesense-brand{
@@ -246,6 +258,77 @@ body {
   font-weight:normal;
   color:var(--text);
 }
+
+/* ===== ORIENTATION ICON ===== */
+.orientation-icon {
+  width:16px;
+  height:16px;
+  opacity:0.85;
+}
+.dark .orientation-icon {
+  filter: invert(1);
+}
+
+/* ===== FORCE LANDSCAPE LAYOUT BY ROLE (ORDER SAFE) ===== */
+body.landscape .app {
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-areas:
+    "header header"
+    "sensors controls"
+    "sensors actuators";
+  gap: 12px;
+}
+
+/* HEADER */
+body.landscape .header {
+  grid-area: header;
+}
+
+/* SENSOR CARD: identified by presence of .sensor elements */
+body.landscape .card:has(.sensor) {
+  grid-auto-rows: minmax(140px, auto);
+  grid-area: sensors;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Make each sensor tile bigger */
+body.landscape .sensor {
+  min-height: clamp(256px, 18vh, 180px);
+}
+
+/* ACTUATORS: identified by motor rows → now BOTTOM RIGHT */
+body.landscape .card:has(.motor-row) {
+  grid-area: actuators;
+  align-self: start;
+}
+
+/* CONTROLS: identified by EC SETPOINT → now TOP RIGHT */
+body.landscape .card:has(#ecSet) {
+  grid-area: controls;
+  align-self: start;
+}
+
+
+/* ===== ENLARGE SENSOR VALUES IN LANDSCAPE ===== */
+body.landscape .sensor .value {
+  font-size: clamp(35px, 4vw, 60px);
+  line-height: 1.1;
+}
+
+body.landscape .sensor .unit {
+  font-size: 15px;
+}
+
+body.landscape .sensor h5 {
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+
 </style>
 </head>
 
@@ -267,6 +350,9 @@ body {
     <span class="badge" id="connStatus">OFFLINE</span>
     <span class="badge" id="deviceIdBadge">ID:----</span>
     <span class="toggle-theme" onclick="toggleTheme()" id="themeBtn">🌙</span>
+    <span class="toggle-theme" onclick="toggleOrientation()" title="Rotate View">
+      <img src="icons/orientation.png" class="orientation-icon">
+    </span>
   </div>
 </div>
 
@@ -278,23 +364,19 @@ body {
 </div>
 
 <div class="card">
-
   <div class="control-box">
     <div class="control-title">EC SETPOINT</div>
     <div class="control-value" id="ecSet">0</div>
     <span class="unit" style="display:block;text-align:center">µS/cm</span>
   </div>
-
   <div class="ctrl-grid" style="margin-top:10px;">
     <div class="ctrl-btn" onclick="sendCmd('ec_down')">- EC DOWN</div>
     <div class="ctrl-btn" onclick="sendCmd('ec_up')">+ EC UP</div>
   </div>
-
   <div class="control-box mode-box">
     <div class="control-title">CURRENT MODE</div>
     <div class="control-value" id="modeVal">--</div>
   </div>
-
   <div class="ctrl-grid">
     <div class="ctrl-btn" onclick="sendCmd('auto')">AUTO</div>
     <div class="ctrl-btn" onclick="sendCmd('manual')">MANUAL</div>
@@ -336,6 +418,7 @@ const DATA_TIMEOUT=10000;
 
 setOffline();
 loadTheme();
+loadViewMode();
 
 client.on("connect",()=>client.subscribe(topicData));
 
@@ -410,6 +493,18 @@ function loadTheme(){
 }
 function updateThemeIcon(){
   themeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
+}
+
+/* ===== ORIENTATION TOGGLE ===== */
+function toggleOrientation(){
+  document.body.classList.toggle("landscape");
+  const isLandscape=document.body.classList.contains("landscape");
+  localStorage.setItem("viewMode",isLandscape?"landscape":"portrait");
+}
+function loadViewMode(){
+  if(localStorage.getItem("viewMode")==="landscape"){
+    document.body.classList.add("landscape");
+  }
 }
 </script>
 
