@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>DoseSense Login</title>
 
-<!-- ✅ MOBILE / TABLET SUPPORT (ONLY ADDITION) -->
+<!-- MOBILE/TABLET VIEWPORT -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
@@ -24,14 +24,13 @@ body{
   justify-content:center;
   align-items:center;
   height:100vh;
-  padding:12px;              /* ✅ MOBILE SAFE AREA */
-  box-sizing:border-box;     /* ✅ PREVENT OVERFLOW */
+  overflow:hidden;            /* ✅ DISABLE SCROLL */
 }
 
 .login-box{
   width:360px;
-  max-width:100%;            /* ✅ MOBILE SAFE */
   text-align:center;
+  transform-origin: center center;
 }
 
 h2{
@@ -121,25 +120,12 @@ button:disabled{
   font-size:10px;
   color:#9ca3af;
 }
-
-/* ✅ SMALL PHONE / TABLET SAFE SCALING (NO VISUAL CHANGE) */
-@media (max-width: 480px) {
-  .login-box {
-    transform: scale(0.95);
-  }
-}
-
-@media (max-width: 360px) {
-  .login-box {
-    transform: scale(0.9);
-  }
-}
 </style>
 </head>
 
 <body>
 
-<div class="login-box">
+<div class="login-box" id="loginBox">
 
   <!-- WELCOME BACK -->
   <h2>Welcome back</h2>
@@ -168,6 +154,18 @@ button:disabled{
 </div>
 
 <script>
+/* 🔹 AUTO SCALE TO FIT SCREEN HEIGHT (NO SCROLL) */
+function scaleLogin(){
+  const box = document.getElementById("loginBox");
+  const screenH = window.innerHeight;
+  const boxH = box.offsetHeight;
+  const scale = Math.min(1, screenH / (boxH + 40));
+  box.style.transform = "scale(" + scale + ")";
+}
+
+window.addEventListener("load", scaleLogin);
+window.addEventListener("resize", scaleLogin);
+
 const broker="wss://broker.emqx.io:8084/mqtt";
 const client = mqtt.connect(broker,{reconnectPeriod:3000});
 
