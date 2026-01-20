@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>DoseSense Dashboard</title>
+
+<!-- MOBILE & TABLET SUPPORT -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
 
 <style>
@@ -25,6 +29,14 @@
   --muted:#9ca3af;
   --badge:#334155;
 }
+
+/* MOBILE SAFE */
+html, body {
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+
 body {
   margin:0;
   font-family:"Segoe UI",sans-serif;
@@ -36,6 +48,21 @@ body {
   margin:auto;
   padding:14px;
 }
+
+/* SMALL PHONE ADJUSTMENT */
+@media (max-width:420px) {
+  .app {
+    padding:10px;
+  }
+}
+
+/* TABLET ADJUSTMENT */
+@media (min-width:768px) {
+  .app {
+    max-width:480px;
+  }
+}
+
 .card {
   background:var(--card);
   border-radius:16px;
