@@ -9,6 +9,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 @font-face {
@@ -99,6 +100,41 @@ body {
 .grid {
   display:grid;grid-template-columns:1fr 1fr;gap:10px;
 }
+
+/* ===== TAB ACTIVE STATE (PREMIUM – BLUE PILL) ===== */
+.tab-active {
+  color:white !important;
+}
+
+.tab-inactive {
+  color:var(--text) !important;
+  opacity:0.6;
+}
+
+
+/* ===== TIME RANGE BUTTON STYLE ===== */
+.time-btn {
+  padding:6px 12px;
+  font-size:11px;
+  font-weight:600;
+  border-radius:20px;
+  background:#5a67ff22;
+  color:var(--text);
+  cursor:pointer;
+  transition: all 0.2s ease;
+  user-select:none;
+}
+
+.time-btn:hover {
+  background:#5a67ff33;
+}
+
+.time-btn.active {
+  background:#5a67ff;
+  color:white;
+  box-shadow:0 2px 6px rgba(90,103,255,0.4);
+}
+
 
 /* ===== 3D SENSOR BOXES ===== */
 .sensor {
@@ -354,12 +390,81 @@ body.landscape .sensor h5 {
   </div>
 </div>
 
+<!-- ===== TAB SELECTOR =====
+<div class="card" style="display:flex;gap:10px;justify-content:center;">
+  <div class="ctrl-btn" onclick="showDashboard()">Dashboard</div>
+  <div class="ctrl-btn" onclick="showGraphs()">Graphs</div>
+</div> -->
+
+<!-- ================= TAB SELECTOR (PREMIUM SEGMENTED CONTROL) ================= -->
+<div class="card" style="
+  position:relative;
+  display:flex;
+  padding:4px;
+  gap:0;
+  overflow:hidden;
+">
+
+  <!-- Sliding Pill -->
+<div id="tabPill" style="
+  position:absolute;
+  top:4px;
+  left:4px;
+  width:calc(50% - 4px);
+  height:calc(100% - 8px);
+  background:#5a67ff;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.15);
+  transition: left 0.3s ease;
+  z-index:0;
+"></div>
+
+
+  <!-- Dashboard Tab -->
+  <div id="tabDashboard" onclick="showDashboard()" style="
+    flex:1;
+    text-align:center;
+    padding:8px 0;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    z-index:1;
+  ">
+    Dashboard
+  </div>
+
+  <!-- Graphs Tab -->
+  <div id="tabGraphs" onclick="showGraphs()" style="
+    flex:1;
+    text-align:center;
+    padding:8px 0;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    z-index:1;
+  ">
+    Graphs
+  </div>
+
+</div>
+
+
+
+
+
+
+
+<!-- ===== DASHBOARD VIEW START ===== -->
+<div id="dashboardView">
+
+
 <div class="card grid">
   <div class="sensor"><span class="icon">🌡</span><h5>TEMPERATURE</h5><div class="value" id="tempVal">--</div><span class="unit">°C</span></div>
   <div class="sensor"><span class="icon">💧</span><h5>HUMIDITY</h5><div class="value" id="humVal">--</div><span class="unit">%</span></div>
   <div class="sensor"><span class="icon">🧪</span><h5>WATER pH</h5><div class="value" id="phVal">--</div><span class="unit">pH</span></div>
   <div class="sensor"><span class="icon">⚡</span><h5>WATER EC</h5><div class="value" id="ecVal">--</div><span class="unit">µS/cm</span></div>
 </div>
+
 
 <div class="card">
   <div class="control-box">
@@ -392,6 +497,74 @@ body.landscape .sensor h5 {
     </span>
   </div>
 </div>
+
+</div> <!-- end dashboardView -->
+
+<!-- ===== GRAPH VIEW START (HIDDEN) ===== -->
+<div id="graphView" style="display:none;">
+
+
+<!-- ===== SENSOR GRAPHS (VERTICAL SENSOR-STYLE BOXES) ===== -->
+<div class="card">
+  <h5>SENSOR GRAPHS</h5>
+
+  <!-- Time Range Buttons -->
+<!-- ===== TIME RANGE SELECTOR (STYLISH) ===== -->
+<div id="timeBar" style="
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:center;
+  margin-bottom:14px;
+">
+
+  <div class="time-btn" id="t-live" onclick="setTime('live')">Live</div>
+  <div class="time-btn" id="t-1m" onclick="setTime('1m')">1 Min</div>
+  <div class="time-btn" id="t-10m" onclick="setTime('10m')">10 Min</div>
+  <div class="time-btn" id="t-30m" onclick="setTime('30m')">30 Min</div>
+  <div class="time-btn" id="t-1h" onclick="setTime('1h')">1 Hr</div>
+  <div class="time-btn" id="t-6h" onclick="setTime('6h')">6 Hr</div>
+  <div class="time-btn" id="t-24h" onclick="setTime('24h')">24 Hr</div>
+
+</div>
+
+
+  <!-- Vertical Stack -->
+  <div style="display:flex;flex-direction:column;gap:12px;">
+
+    <!-- Temperature Graph -->
+    <div class="sensor">
+      <span class="icon">🌡</span>
+      <h5>TEMPERATURE (°C)</h5>
+      <canvas id="tempChart" height="140"></canvas>
+    </div>
+
+    <!-- Humidity Graph -->
+    <div class="sensor">
+      <span class="icon">💧</span>
+      <h5>HUMIDITY (%)</h5>
+      <canvas id="humChart" height="140"></canvas>
+    </div>
+
+    <!-- pH Graph -->
+    <div class="sensor">
+      <span class="icon">🧪</span>
+      <h5>WATER pH</h5>
+      <canvas id="phChart" height="140"></canvas>
+    </div>
+
+    <!-- EC Graph -->
+    <div class="sensor">
+      <span class="icon">⚡</span>
+      <h5>WATER EC (µS/cm)</h5>
+      <canvas id="ecChart" height="140"></canvas>
+    </div>
+
+  </div>
+</div>
+<!-- ===== END SENSOR GRAPHS ===== -->
+</div> <!-- end graphView -->
+
 
 <div class="footer">DoseSense © Veltrix Robotic 2026 | v1.0.0</div>
 
@@ -504,8 +677,134 @@ function loadViewMode(){
     document.body.classList.add("landscape");
   }
 }
+/* ===== GRAPH SYSTEM (NON-INTRUSIVE ADD-ON) ===== */
+
+let rangeMode = "live";
+
+const buffers = {
+  temp: [],
+  hum: [],
+  ph: [],
+  ec: []
+};
+
+function maxPoints() {
+  switch(rangeMode){
+    case "1m":  return 60;
+    case "10m": return 600;
+    case "30m": return 1800;
+    case "1h":  return 3600;
+    case "6h":  return 21600;
+    case "24h": return 86400;
+    default:    return 120;   // live (last ~2 minutes fast view)
+  }
+}
+
+function pushData(buf, value){
+  buf.push({ t: Date.now(), v: value });
+  if(buf.length > maxPoints()) buf.shift();
+}
+
+function setTime(r){
+  rangeMode = r;
+
+  // remove active from all
+  document.querySelectorAll(".time-btn").forEach(b=>{
+    b.classList.remove("active");
+  });
+
+  // activate selected
+  const id = "t-" + r;
+  const btn = document.getElementById(id);
+  if(btn) btn.classList.add("active");
+}
+
+
+/* ----- Create Charts ----- */
+function makeChart(ctx, label){
+  return new Chart(ctx,{
+    type:"line",
+    data:{ labels:[], datasets:[{ label, data:[], tension:0.25 }] },
+    options:{
+      responsive:true,
+      animation:false,
+      plugins:{ legend:{display:false}},
+      scales:{ x:{display:false} }
+    }
+  });
+}
+
+const tempChart = makeChart(document.getElementById("tempChart"),"Temp");
+const humChart  = makeChart(document.getElementById("humChart"),"Hum");
+const phChart   = makeChart(document.getElementById("phChart"),"pH");
+const ecChart   = makeChart(document.getElementById("ecChart"),"EC");
+
+/* ----- Update Charts Periodically ----- */
+setInterval(()=>{
+  updateChart(tempChart,buffers.temp);
+  updateChart(humChart,buffers.hum);
+  updateChart(phChart,buffers.ph);
+  updateChart(ecChart,buffers.ec);
+},1000);
+
+function updateChart(chart, buf){
+  chart.data.labels = buf.map(x=>"");
+  chart.data.datasets[0].data = buf.map(x=>x.v);
+  chart.update();
+}
+
+/* ----- Hook into existing MQTT data flow (NO CHANGE TO YOUR CODE) ----- */
+const oldHandler = client._events.message;
+
+client.on("message",(topic,message)=>{
+  const p = message.toString().trim().split(",");
+  if(p.length>=9){
+    pushData(buffers.temp, parseFloat(p[1]));
+    pushData(buffers.hum,  parseFloat(p[2]));
+    pushData(buffers.ph,   parseFloat(p[3]));
+    pushData(buffers.ec,   parseFloat(p[4]));
+  }
+});
+
+/* ===== TAB SWITCH (DASHBOARD / GRAPHS) ===== */
+function showDashboard(){
+  document.getElementById("dashboardView").style.display = "block";
+  document.getElementById("graphView").style.display = "none";
+
+  // move pill to left
+  document.getElementById("tabPill").style.left = "4px";
+
+  // highlight text
+  tabDashboard.classList.add("tab-active");
+  tabDashboard.classList.remove("tab-inactive");
+
+  tabGraphs.classList.add("tab-inactive");
+  tabGraphs.classList.remove("tab-active");
+}
+
+function showGraphs(){
+  document.getElementById("dashboardView").style.display = "none";
+  document.getElementById("graphView").style.display = "block";
+
+  // move pill to right
+  document.getElementById("tabPill").style.left = "calc(50% + 0px)";
+
+  // highlight text
+  tabGraphs.classList.add("tab-active");
+  tabGraphs.classList.remove("tab-inactive");
+
+  tabDashboard.classList.add("tab-inactive");
+  tabDashboard.classList.remove("tab-active");
+}
+
+
+
+// Default active tab = Dashboard
+showDashboard();
+// Default active time = Live
+setTime("live");
+
 </script>
 
 </body>
 </html>
-
