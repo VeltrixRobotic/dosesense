@@ -10,6 +10,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
 
 <style>
 @font-face {
@@ -506,7 +508,7 @@ body.landscape .sensor h5 {
 
 <!-- ===== SENSOR GRAPHS (VERTICAL SENSOR-STYLE BOXES) ===== -->
 <div class="card">
-  <h5>SENSOR GRAPHS</h5>
+  <h5>SENSOR DATA</h5>
 
   <!-- Time Range Buttons -->
 <!-- ===== TIME RANGE SELECTOR (STYLISH) ===== -->
@@ -533,32 +535,84 @@ body.landscape .sensor h5 {
   <div style="display:flex;flex-direction:column;gap:12px;">
 
     <!-- Temperature Graph -->
-    <div class="sensor">
-      <span class="icon">🌡</span>
-      <h5>TEMPERATURE (°C)</h5>
-      <canvas id="tempChart" height="140"></canvas>
-    </div>
+<div class="sensor">
+  <span class="icon">🌡</span>
+  <h5>
+    TEMPERATURE (°C)
+    <button onclick="exportCSV('temp')" style="
+      float:right;
+      margin-right:22px;   /* ← PUSH AWAY FROM ICON */
+      font-size:10px;
+      padding:4px 8px;
+      border-radius:8px;
+      border:none;
+      background:#5a67ff22;
+      cursor:pointer;
+    ">CSV</button>
+  </h5>
+  <canvas id="tempChart" height="140"></canvas>
+</div>
+
 
     <!-- Humidity Graph -->
-    <div class="sensor">
-      <span class="icon">💧</span>
-      <h5>HUMIDITY (%)</h5>
-      <canvas id="humChart" height="140"></canvas>
-    </div>
+<div class="sensor">
+  <span class="icon">💧</span>
+  <h5>
+    HUMIDITY (%)
+    <button onclick="exportCSV('hum')" style="
+      float:right;
+      margin-right:22px;   /* ← PUSH AWAY FROM ICON */
+      font-size:10px;
+      padding:4px 8px;
+      border-radius:8px;
+      border:none;
+      background:#5a67ff22;
+      cursor:pointer;
+    ">CSV</button>
+  </h5>
+  <canvas id="humChart" height="140"></canvas>
+</div>
+
 
     <!-- pH Graph -->
-    <div class="sensor">
-      <span class="icon">🧪</span>
-      <h5>WATER pH</h5>
-      <canvas id="phChart" height="140"></canvas>
-    </div>
+<div class="sensor">
+  <span class="icon">🧪</span>
+  <h5>
+    WATER pH
+    <button onclick="exportCSV('ph')" style="
+      float:right;
+      margin-right:22px;   /* ← PUSH AWAY FROM ICON */
+      font-size:10px;
+      padding:4px 8px;
+      border-radius:8px;
+      border:none;
+      background:#5a67ff22;
+      cursor:pointer;
+    ">CSV</button>
+  </h5>
+  <canvas id="phChart" height="140"></canvas>
+</div>
+
 
     <!-- EC Graph -->
-    <div class="sensor">
-      <span class="icon">⚡</span>
-      <h5>WATER EC (µS/cm)</h5>
-      <canvas id="ecChart" height="140"></canvas>
-    </div>
+<div class="sensor">
+  <span class="icon">⚡</span>
+  <h5>
+    WATER EC (µS/cm)
+    <button onclick="exportCSV('ec')" style="
+      float:right;
+      margin-right:22px;   /* ← PUSH AWAY FROM ICON */
+      font-size:10px;
+      padding:4px 8px;
+      border-radius:8px;
+      border:none;
+      background:#5a67ff22;
+      cursor:pointer;
+    ">CSV</button>
+  </h5>
+  <canvas id="ecChart" height="140"></canvas>
+</div>
+
 
   </div>
 </div>
@@ -688,6 +742,43 @@ const buffers = {
   ec: []
 };
 
+const BUFFER_KEY = "ds_buffers_" + DEVICE_MAC;
+
+loadBuffers();   // ✅ NOW IT WORKS
+
+
+/* ===== SAVE / LOAD GRAPH HISTORY (PER DEVICE, 24H WINDOW) ===== */
+
+function saveBuffers(){
+  const MAX_HOURS = 24;
+  const MAX_AGE = MAX_HOURS * 60 * 60 * 1000; // 24 hours
+  const now = Date.now();
+
+  ["temp","hum","ph","ec"].forEach(k=>{
+    buffers[k] = buffers[k].filter(p => now - p.t <= MAX_AGE);
+  });
+
+  localStorage.setItem(BUFFER_KEY, JSON.stringify(buffers));
+}
+
+function loadBuffers(){
+  const saved = localStorage.getItem(BUFFER_KEY);
+  if(saved){
+    try{
+      const data = JSON.parse(saved);
+      if(data.temp && data.hum && data.ph && data.ec){
+        buffers.temp = data.temp;
+        buffers.hum  = data.hum;
+        buffers.ph   = data.ph;
+        buffers.ec   = data.ec;
+      }
+    }catch(e){
+      console.log("Buffer restore failed");
+    }
+  }
+}
+
+
 function maxPoints() {
   switch(rangeMode){
     case "1m":  return 60;
@@ -721,23 +812,97 @@ function setTime(r){
 
 
 /* ----- Create Charts ----- */
-function makeChart(ctx, label){
+function makeChart(ctx, label, color){
   return new Chart(ctx,{
     type:"line",
-    data:{ labels:[], datasets:[{ label, data:[], tension:0.25 }] },
+    data:{
+      datasets:[{
+        label: label,
+        data: [],
+        tension: 0,              // straight line
+        borderWidth: 2,
+        pointRadius: 0,
+        borderColor: color,     // sensor color
+        backgroundColor: color
+      }]
+    },
     options:{
       responsive:true,
       animation:false,
-      plugins:{ legend:{display:false}},
-      scales:{ x:{display:false} }
+      plugins:{
+  legend:{display:false},
+  tooltip:{
+    callbacks:{
+      title:(items)=>{
+        const d = new Date(items[0].parsed.x);
+        return d.toLocaleString("en-GB", {
+          timeZone: "Asia/Kuala_Lumpur",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        });
+      }
+    }
+  }
+},
+
+      scales:{
+        x:{
+          type: "time",
+          time:{
+            zone: "Asia/Kuala_Lumpur",
+            displayFormats:{
+              second: "HH:mm:ss",
+              minute: "HH:mm",
+              hour: "HH:mm"
+            }
+          },
+          ticks:{
+            maxTicksLimit:6,
+            color:"#888"
+          }
+        },
+        y:{
+          ticks:{ color:"#888" }
+        }
+      }
     }
   });
 }
 
-const tempChart = makeChart(document.getElementById("tempChart"),"Temp");
-const humChart  = makeChart(document.getElementById("humChart"),"Hum");
-const phChart   = makeChart(document.getElementById("phChart"),"pH");
-const ecChart   = makeChart(document.getElementById("ecChart"),"EC");
+
+
+const tempChart = makeChart(
+  document.getElementById("tempChart"),
+  "Temperature",
+  "#ef4444"   // red
+);
+
+const humChart  = makeChart(
+  document.getElementById("humChart"),
+  "Humidity",
+  "#3b82f6"   // blue
+);
+
+const phChart   = makeChart(
+  document.getElementById("phChart"),
+  "pH",
+  "#22c55e"   // green
+);
+
+const ecChart   = makeChart(
+  document.getElementById("ecChart"),
+  "EC",
+  "#a855f7"   // purple
+);
+
+
+// draw restored history immediately
+updateChart(tempChart,buffers.temp);
+updateChart(humChart,buffers.hum);
+updateChart(phChart,buffers.ph);
+updateChart(ecChart,buffers.ec);
+
 
 /* ----- Update Charts Periodically ----- */
 setInterval(()=>{
@@ -748,23 +913,30 @@ setInterval(()=>{
 },1000);
 
 function updateChart(chart, buf){
-  chart.data.labels = buf.map(x=>"");
-  chart.data.datasets[0].data = buf.map(x=>x.v);
+  chart.data.datasets[0].data = buf.map(x=>({
+    x: x.t,
+    y: x.v
+  }));
   chart.update();
 }
 
-/* ----- Hook into existing MQTT data flow (NO CHANGE TO YOUR CODE) ----- */
-const oldHandler = client._events.message;
 
+/* ----- Hook into existing MQTT data flow (GRAPH + SAVE) ----- */
 client.on("message",(topic,message)=>{
   const p = message.toString().trim().split(",");
   if(p.length>=9){
+
+    // push to graph buffers
     pushData(buffers.temp, parseFloat(p[1]));
     pushData(buffers.hum,  parseFloat(p[2]));
     pushData(buffers.ph,   parseFloat(p[3]));
     pushData(buffers.ec,   parseFloat(p[4]));
+
+    // SAVE HISTORY (per device, 24h sliding window)
+    saveBuffers();
   }
 });
+
 
 /* ===== TAB SWITCH (DASHBOARD / GRAPHS) ===== */
 function showDashboard(){
@@ -797,6 +969,45 @@ function showGraphs(){
   tabDashboard.classList.remove("tab-active");
 }
 
+/* ===== EXPORT CSV PER SENSOR ===== */
+
+function exportCSV(sensor){
+  const data = buffers[sensor];
+  if(!data || data.length === 0){
+    alert("No data to export");
+    return;
+  }
+
+  let csv = "Time,Value\n";
+
+  data.forEach(p=>{
+    const t = new Date(p.t).toLocaleString("en-GB", {
+      timeZone: "Asia/Kuala_Lumpur",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+});
+
+    csv += `${t},${p.v}\n`;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  const now = new Date().toISOString().slice(0,19).replace(/:/g,"-");
+
+  a.href = url;
+  a.download = `DoseSense_${DEVICE_MAC}_${sensor}_${now}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+}
 
 
 // Default active tab = Dashboard
